@@ -3,24 +3,12 @@ import sys
 import json
 import random
 import os
-
-def typewrite(text):
+import rich
+from rich import print
     
-    punctuationArray = [".", "!", "?", ",", ":", ";"] # List of punctuation that will pause the text
-    
-    for char in text: # Write the line character-by-character until done.
-        sys.stdout.write(char)
-        sys.stdout.flush()
-        if (char in punctuationArray):
-            time.sleep(0.25)
-        else:
-            time.sleep(0.025)
-    print() 
-    
-moveDirectory = {
+moveDirectory = { # List of all moves. Power is the median amount of damage, accuracy is move hit probability out of 100, effect is optional, 0 is no effect. charge is required charge to use attack. 
     0: {
         "name": "Scratch",
-        "target": 0,
         "power": 10, 
         "accuracy": 90,
         "effect": 0,
@@ -28,7 +16,6 @@ moveDirectory = {
     },
     1: {
         "name": "Chomp",
-        "target": 0,
         "power": 30, 
         "accuracy": 80,
         "effect": 1,
@@ -36,7 +23,6 @@ moveDirectory = {
     },
     2: {
         "name": "Energize",
-        "target": 1,
         "power": 0, 
         "accuracy": 100,
         "effect": 2,
@@ -44,7 +30,6 @@ moveDirectory = {
     },
     3: {
         "name": "Mind Matrix",
-        "target": 0,
         "power": 75, 
         "accuracy": 85,
         "effect": 3,
@@ -52,7 +37,6 @@ moveDirectory = {
     },
     4: {
         "name": "Gymnastic Punch",
-        "target": 0,
         "power": 60, 
         "accuracy": 65,
         "effect": 4,
@@ -60,7 +44,6 @@ moveDirectory = {
     },
     5: {
         "name": "Backhand",
-        "target": 0,
         "power": 30, 
         "accuracy": 85,
         "effect": 4,
@@ -68,7 +51,6 @@ moveDirectory = {
     },
     6: {
         "name": "Ritual",
-        "target": 1,
         "power": 0, 
         "accuracy": 100,
         "effect": 2,
@@ -76,7 +58,6 @@ moveDirectory = {
     },
     7: {
         "name": "Power Blast",
-        "target": 0,
         "power": 80, 
         "accuracy": 80,
         "effect": 0,
@@ -84,123 +65,189 @@ moveDirectory = {
     },
 }
 
-turnOrder = "none"
-
-playerStats = {
+playerStats = { # Used for player calculations and move selection.
+    "name": "Player",
+    "creatureName": "Creature",
     "health": 80,
     "attack": 1.0,
     "defense": 1.2,
     "moves": [0, 1, 5, 7],
     "charge": 0,
-    "gain": 4
+    "chargeGain": 2
 }
 
-enemyStats = {
+enemyStats = { # Used for player calculations and move selection.
+    "name": "John Mark",
+    "creatureName": "Zinky",
     "health": 80,
     "attack": 1.1,
     "defense": 0.9,
     "moves": [0, 6, 3, 4],
     "charge": 0,
-    "gain": 4
+    "chargeGain": 2
 }
 
-playerHealth = 80
-playerMoves = [0, 1, 5, 7]
-enemyHealth = 80
-enemyMoves = [0, 6, 3, 4]
+turnOrder = "" # Turn order is set in next_turn().
 
-def refresh():
+def clear(): # Wipes the console
     os.system('cls' if os.name == 'nt' else 'clear')
-    print(f"YOU: {playerStats['health']}hp.\nENEMY: {enemyStats['health']}hp.\n")
+    
+def refresh(): # Wipes the console and displays battle stats.
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print(f"[{playerStats['creatureName']} (You): [red]{playerStats['health']}♥[/] [yellow]{playerStats['charge']}⚡︎+{playerStats['chargeGain']}[/]] [{enemyStats['creatureName']}: [red]{enemyStats['health']}♥[/] [yellow]{enemyStats['charge']}⚡︎+{enemyStats['chargeGain']}[/]]\n")
+
+def wait_for_input(): # Pauses the game until the player presses enter.
+    input("\n[Enter]")
+
+def typewrite(text):
+    punctuationList = [".", "!", "?", ",", ":", ";"] # List of punctuation that will pause the text
+    
+    for char in text: # Write the line character-by-character until done.
+        sys.stdout.write(char)
+        sys.stdout.flush()
+        if (char in punctuationList):
+            time.sleep(0.25)
+        else:
+            time.sleep(0.03)
+    print() 
+    
+def setup(): # Introduction, gathers player name and player creature name
+    clear()
+    
+    typewrite("Your name:")
+    playerName = input("> ")
+    
+    playerStats['name'] = playerName
+    clear()
+    
+    typewrite(f"Your creature's name:")
+    playerCreatureName = input("> ")
+    
+    playerStats['creatureName'] = playerCreatureName
+    clear()
+
+    initiate_battle()
+
+def initiate_battle(): # Flavor text and sets battle participants.
+    clear()
+    
+    time.sleep(0.5)
+    typewrite(f"An enemy approaches from the shadows.\n{enemyStats['name']} has challenged you!")
+
+    wait_for_input()
+    next_turn()
 
 def end_battle(outcome):
 
     if (outcome == "win"):
-        typewrite("The enemy creature has been mortally wounded...")
+        typewrite(f"{enemyStats['creatureName']} has been mortally wounded...")
         typewrite("You win!")
     elif (outcome == "lose"):
-        typewrite("Your creature has been mortally wounded...")
+        typewrite(f"{playerStats['creatureName']} has been mortally wounded...")
         typewrite("You lose!")  
 
 def effect(id, target):
-
-    targetReference = "none"
+    
+    targetReference = "The creature"
+    effectReciever = {}
 
     if (target == 0):
-        targetReference = "The enemy"
+        targetReference = playerStats['creatureName']
+        effectReciever = playerStats 
     elif (target == 1):
-        targetReference = "Your creature"
+        targetReference = enemyStats['creatureName']
+        effectReciever = enemyStats
 
 
-    if (id == 0):
+    if (id == 0): # No effect
         pass
-    elif (id == 1):
-        typewrite(f"{targetReference} creature became mangled!")
-    elif (id == 2):
-        typewrite(f"{targetReference}'s Charge gain increased!")
-    elif (id == 3):
-        typewrite(f"{targetReference} is bewildered!")
-    elif (id == 4):
-        typewrite(f"{targetReference} became dazed!")
+    elif (id == 1): # Mangled effect, drops attack by 0.1
+        effectReciever['attack'] -= 0.1
+        typewrite(f"{targetReference} became mangled, attack dropped to {effectReciever['attack']}!")
+    elif (id == 2): # Energized effect, increases charge gain by 1
+        effectReciever['chargeGain'] += 1
+        typewrite(f"{targetReference} feels energized, charge gain increased to {effectReciever['chargeGain']}!")
+    elif (id == 3): # Bewildered effect, drops defense by 0.2
+        effectReciever['defense'] -= 0.2
+        typewrite(f"{targetReference} is bewildered, defense dropped harshly to {effectReciever['defense']}!")
+    elif (id == 4): # Dazed effect, divides current charge by 1.2
+        effectReciever['charge'] /= 1.2
+        round(effectReciever['charge'])
+        typewrite(f"{targetReference} became dazed, lost {effectReciever['charge']} charge!")
+    elif (id == 5): # Emboldened effect, raises attack by 0.3, drops defense by 0.2
+        effectReciever['attack'] += 0.3
+        effectReciever['defense'] -= 0.2
+        typewrite(f"{targetReference} felt emboldened, attack increased greatly to {effectReciever['attack']}, defense dropped harshly to {effectReciever['defense']} !")
 
-def use_move(id):
+def use_move(id, target):
     global playerHealth
     global enemyHealth
 
     refresh()
 
-    damageDealt = round(random.randint(moveDirectory[id]['power'] - 10, moveDirectory[id]['power'] + 5) * playerStats['attack']) # Calculate damage with some variation
+    damageDealt = round(random.randint(moveDirectory[id]['power'] - 5, moveDirectory[id]['power'] + 5) * playerStats['attack'] ) # Calculate damage with some variation
     accuracyCheck = random.randint(1, 100)
 
-    typewrite(f"Your creature used {moveDirectory[id]['name']}.")
+    typewrite(f"{playerStats['creatureName']} used {moveDirectory[id]['name']}.")
 
     if (accuracyCheck > moveDirectory[id]['accuracy']): # If move misses
-        if (moveDirectory[id]['target'] == 0): # If target is opponent
+        if (target == 1): # If target is opponent
             typewrite(f"...But it missed!\n")
-        elif (moveDirectory[id]['target'] == 1): # If target is self
+        elif (target == 0): # If target is self
             typewrite(f"...But it failed!\n")
     elif (accuracyCheck < moveDirectory[id]['accuracy']): # If attack hits
         if (moveDirectory[id]['power'] > 0): # If attack does damage
-            if (moveDirectory[id]['target'] == 0): # If target is opponent
+            if (target == 1): # If target is opponent
                 enemyStats['health'] -= damageDealt
-                typewrite(f"The enemy creature took {damageDealt}hp of damage. Reduced hp to {enemyStats['health']}!")
-            elif (moveDirectory[id]['target'] == 1): # If target is self
+                typewrite(f"{enemyStats['creatureName']} took {damageDealt} damage. Reduced ♥ to {enemyStats['health']}!")
+            elif (target == 0): # If target is self
                 playerStats['health'] -= damageDealt
-                typewrite(f"Your creature took {damageDealt}hp of damage. Reduced hp to {playerStats['health']}!")
-        effect(moveDirectory[id]['effect'], moveDirectory[id]['target']) # Apply effect to target (0 == no effect)
+                typewrite(f"{playerStats['creatureName']} took {damageDealt} damage. Reduced ♥ to {playerStats['health']}!")
+        else:
+            pass
+        effect(moveDirectory[id]['effect'], target) # Apply effect to target (0 == no effect)
 
 def player_turn():
     global playerHealth
     global enemyHealth
+    global participants
     
-    typewrite(f"Select a move number:")
-    for index, move in enumerate(playerMoves):
-        print(f"{index}. {moveDirectory[playerMoves[index]]['name']}")
+    typewrite("Select a move number:")
+    for index, move in enumerate(playerStats['moves']):
+        print(f"{index}. {moveDirectory[playerStats['moves'][index]]['name']}")
         time.sleep(0.2)
     moveChoicer = input("> ")
     moveInteger = int(moveChoicer)
-    selectedMoveID = playerMoves[moveInteger]
-
-    use_move(selectedMoveID)
+    selectedMoveID = playerStats['moves'][moveInteger]
     
-    input("\nPress any key to continue.")
+    typewrite("\nAnd the target:")
+    print(f"0. {playerStats['creatureName']}")
+    time.sleep(0.2)
+    print(f"1. {enemyStats['creatureName']}")
+    time.sleep(0.2)
+    targetChoicer = input("> ")
+    targetInteger = int(targetChoicer)
+
+    use_move(selectedMoveID, targetInteger)
+    
+    wait_for_input()
     next_turn()
 
 def enemy_turn():
     global playerHealth
     global enemyHealth
     
-    selectedMove = random.randint(0, 3)
-    typewrite(f"The enemy creature used {moveDirectory[enemyMoves[selectedMove]]['name']}.")
-    damageDealt = round(random.randint(moveDirectory[enemyMoves[selectedMove]]['power'] - 5, moveDirectory[enemyMoves[selectedMove]]['power'] + 5) * enemyStats['attack'])
+    selectedMove = moveDirectory[enemyStats['moves'][random.randint(0, 3)]]
+    typewrite(f"{enemyStats['creatureName']} used {selectedMove['name']}.")
+    damageDealt = round(random.randint(selectedMove['power'] - 5, selectedMove['power'] + 5) * enemyStats['attack'])
     playerStats["health"] -= damageDealt
     
     time.sleep(0.5)
-    typewrite(f"Your creature took {damageDealt}hp of damage. Reduced hp to {playerStats["health"]}!\n")
-    effect(moveDirectory[enemyMoves[selectedMove]]['effect'], moveDirectory[enemyMoves[selectedMove]]['target']) # Apply effect to target (0 == no effect)
+    typewrite(f"{playerStats['creatureName']} took {damageDealt} damage. Reduced ♥ to {playerStats['health']}!")
+    effect(selectedMove['effect'], 0) # Apply effect to target (0 == no effect)
 
     
-    input("Press any key to continue.")
+    wait_for_input()
     next_turn()
     
 
@@ -221,17 +268,9 @@ def next_turn():
     elif (turnOrder == "enemy"):
         turnOrder = "player"
         player_turn()
-    elif (turnOrder == "none"):
+    elif (turnOrder == ""):
         turnOrder = "player"
         player_turn()  
-
-def initiate_battle():
-    refresh()
-    typewrite("An enemy approaches from the shadows, prepare for battle!\n")
-
-    input("Press any key to continue.")
-    next_turn()
     
-initiate_battle()
-
+setup()
 
