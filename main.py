@@ -5,13 +5,14 @@ import random
 import os
 import rich
 from rich import print
+import math
     
 moveDirectory = { # List of all moves. Power is the median amount of damage, accuracy is move hit probability out of 100, effect is optional, 0 is no effect. charge is required charge to use attack. 
     0: {
         "name": "Scratch",
         "power": 10, 
         "accuracy": 90,
-        "effect": 0,
+        "effect": 4,
         "charge": 0
     },
     1: {
@@ -171,9 +172,8 @@ def effect(id, target):
         effectReciever['defense'] -= 0.2
         typewrite(f"{targetReference} is bewildered, defense dropped harshly to {effectReciever['defense']}!")
     elif (id == 4): # Dazed effect, divides current charge by 1.2
-        effectReciever['charge'] /= 1.2
-        round(effectReciever['charge'])
-        typewrite(f"{targetReference} became dazed, lost {effectReciever['charge']} charge!")
+        effectReciever['charge'] = math.floor(effectReciever['charge'] / 1.2)
+        typewrite(f"{targetReference} became dazed, charge reduced to {effectReciever['charge']}!")
     elif (id == 5): # Emboldened effect, raises attack by 0.3, drops defense by 0.2
         effectReciever['attack'] += 0.3
         effectReciever['defense'] -= 0.2
@@ -185,10 +185,16 @@ def use_move(id, target):
 
     refresh()
 
-    damageDealt = round(random.randint(moveDirectory[id]['power'] - 5, moveDirectory[id]['power'] + 5) * playerStats['attack'] ) # Calculate damage with some variation
+    damageDealt = math.floor(random.randint(moveDirectory[id]['power'] - 5, moveDirectory[id]['power'] + 5) * playerStats['attack'] ) # Calculate damage with some variation
     accuracyCheck = random.randint(1, 100)
 
     typewrite(f"{playerStats['creatureName']} used {moveDirectory[id]['name']}.")
+
+    if (playerStats['charge'] < moveDirectory[id]['charge']):
+        typewrite(f"But they didn't have enough charge!")
+        return
+    else:
+        playerStats['charge'] -= moveDirectory[id]['charge']
 
     if (accuracyCheck > moveDirectory[id]['accuracy']): # If move misses
         if (target == 1): # If target is opponent
@@ -198,10 +204,10 @@ def use_move(id, target):
     elif (accuracyCheck < moveDirectory[id]['accuracy']): # If attack hits
         if (moveDirectory[id]['power'] > 0): # If attack does damage
             if (target == 1): # If target is opponent
-                enemyStats['health'] -= damageDealt
+                enemyStats['health'] -= math.floor(damageDealt/enemyStats['defense'])
                 typewrite(f"{enemyStats['creatureName']} took {damageDealt} damage. Reduced ♥ to {enemyStats['health']}!")
             elif (target == 0): # If target is self
-                playerStats['health'] -= damageDealt
+                playerStats['health'] -= math.floor(damageDealt/playerStats['defense'])
                 typewrite(f"{playerStats['creatureName']} took {damageDealt} damage. Reduced ♥ to {playerStats['health']}!")
         else:
             pass
@@ -214,7 +220,8 @@ def player_turn():
     
     typewrite("Select a move number:")
     for index, move in enumerate(playerStats['moves']):
-        print(f"{index}. {moveDirectory[playerStats['moves'][index]]['name']}")
+        moveData = moveDirectory[playerStats['moves'][index]]
+        print(f"{index}. {moveData['name']} ([red]{moveData['power']}[/]/{moveData['accuracy']}/[yellow]{moveData['charge']}[/])")
         time.sleep(0.2)
     moveChoicer = input("> ")
     moveInteger = int(moveChoicer)
@@ -239,7 +246,7 @@ def enemy_turn():
     
     selectedMove = moveDirectory[enemyStats['moves'][random.randint(0, 3)]]
     typewrite(f"{enemyStats['creatureName']} used {selectedMove['name']}.")
-    damageDealt = round(random.randint(selectedMove['power'] - 5, selectedMove['power'] + 5) * enemyStats['attack'])
+    damageDealt = math.floor(random.randint(selectedMove['power'] - 5, selectedMove['power'] + 5) * enemyStats['attack'])
     playerStats["health"] -= damageDealt
     
     time.sleep(0.5)
@@ -255,6 +262,9 @@ def next_turn():
     global playerHealth
     global enemyHealth
     global turnOrder
+
+    playerStats['charge'] += playerStats['chargeGain']
+    enemyStats['charge'] += enemyStats['chargeGain']
     
     refresh()
     
